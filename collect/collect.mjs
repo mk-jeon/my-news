@@ -36,14 +36,3 @@ const idx = JSON.parse(await readFile(idxUrl, 'utf8').catch(() => '{"dates":[]}'
 idx.dates = [...new Set([date, ...idx.dates])].sort().reverse();
 await writeFile(idxUrl, JSON.stringify(idx));
 console.log(`[write] ${count} items`);
-
-// 웹 푸시 (시크릿 없으면 건너뜀)
-const { VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv, PUSH_SUBSCRIPTIONS: subs } = process.env;
-if (pub && priv && subs) {
-  const webpush = (await import('web-push')).default;
-  webpush.setVapidDetails('https://github.com/mk-jeon/my-news', pub, priv);
-  const top = sections.find((s) => s.groups[0]?.items[0])?.groups[0].items[0];
-  const payload = JSON.stringify({ title: `MARK · ${date.slice(5).replace('-', '/')} 브리프`, body: `오늘의 소식 ${count}건${top ? ` — ${top.title}` : ''}`, url: `./?d=${date}` });
-  const list = [JSON.parse(subs)].flat();
-  for (const s of list) await webpush.sendNotification(s, payload).then(() => console.log('[push] sent'), (e) => console.warn('[push] failed', e.statusCode, e.body));
-} else console.log('[push] skipped (no secrets)');

@@ -35,7 +35,8 @@ function ago(ms) {
   if (m < 1440) return `${Math.round(m / 60)}시간 전`;
   return `${Math.round(m / 1440)}일 전`;
 }
-const dayLabel = (d) => { const x = new Date(d + 'T00:00:00+09:00'); return `${x.getMonth() + 1}.${String(x.getDate()).padStart(2, '0')} (${'일월화수목금토'[x.getDay()]})`; };
+// 날짜 문자열은 KST 기준. 기기 시간대와 무관하게 UTC 로 읽는다
+const dayLabel = (d) => { const x = new Date(d + 'T00:00:00Z'); return `${x.getUTCMonth() + 1}.${String(x.getUTCDate()).padStart(2, '0')} (${'일월화수목금토'[x.getUTCDay()]})`; };
 
 function card(it, { hero = false, date = state.date } = {}) {
   const saved = !!scraps[it.id];
@@ -65,7 +66,7 @@ function renderTabs() {
   const secs = state.data?.sections ?? [];
   const tabs = [['brief', '브리핑', null], ...secs.map((s) => [s.id, s.title, s.groups.reduce((n, g) => n + g.items.length, 0)]), ['scrap', '스크랩', Object.keys(scraps).length]];
   $('#tabs').innerHTML = tabs.map(([id, t, n]) =>
-    `<button class="tab" role="tab" data-tab="${id}" aria-selected="${state.tab === id}">${svg(ICON[id] ? id : 'brief')}${esc(t)}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+    `<button class="tab" role="tab" data-tab="${esc(id)}" aria-selected="${state.tab === id}">${svg(ICON[id] ? id : 'brief')}${esc(t)}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('');
   $('#tabs').setAttribute('role', 'tablist');
 }
 
@@ -93,7 +94,7 @@ function renderScrap() {
   const list = Object.values(scraps).sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0));
   const dl = Object.keys(days).sort().reverse();
   return `<div class="hello"><h1>스크랩</h1><p>이 기기에 저장됨 · 소식 ${list.length}건 · 날짜 ${dl.length}개</p></div>
-    ${dl.length ? `<section class="group"><h2>통째로 저장한 날짜</h2><div class="days">${dl.map((d) => `<button class="tab" data-day="${d}">${svg('scrap')}${dayLabel(d)}</button>`).join('')}</div></section>` : ''}
+    ${dl.length ? `<section class="group"><h2>통째로 저장한 날짜</h2><div class="days">${dl.map((d) => `<button class="tab" data-day="${esc(d)}">${svg('scrap')}${esc(dayLabel(d))}</button>`).join('')}</div></section>` : ''}
     <section class="group"><h2>저장한 소식</h2>${list.length ? `<div class="cards">${list.map((it) => card(it, { date: it.date })).join('')}</div>` : '<p class="empty">카드의 책갈피 버튼을 누르면 여기에 모여요.</p>'}</section>`;
 }
 
@@ -158,7 +159,8 @@ $('#exportScrap').onclick = () => {
 $('#importScrap').onchange = async (e) => {
   try {
     const j = JSON.parse(await e.target.files[0].text());
-    scraps = { ...scraps, ...j.scraps }; days = { ...days, ...j.days };
+    const okDays = Object.fromEntries(Object.entries(j.days ?? {}).filter(([k]) => /^\d{4}-\d\d-\d\d$/.test(k)));
+    scraps = { ...scraps, ...j.scraps }; days = { ...days, ...okDays };
     store.set('mark.items', scraps); store.set('mark.days', days); toast('가져왔어요'); render();
   } catch { toast('파일을 읽지 못했어요'); }
 };
