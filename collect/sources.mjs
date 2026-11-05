@@ -1,22 +1,33 @@
 // 소스 목록 + 수집 함수. 소스 추가/삭제는 이 파일의 상수만 고치면 된다.
 import { XMLParser } from 'fast-xml-parser';
 
-const UA = 'Mozilla/5.0 (my-news daily brief; +https://github.com/mk-jeon/my-news)';
+// 국내 사이트 일부가 봇 UA 를 막아서 일반 브라우저 UA 사용
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@' });
 const DAY = 864e5;
 
+// 국내 소스가 메인, 해외 소스는 번역해서 보조 그룹으로
 export const FEEDS = {
-  hardware: [
+  hardwareKo: [
+    ['기글하드웨어', 'https://gigglehd.com/gg/hard/rss'],
+    ['보드나라', 'https://www.bodnara.co.kr/rss/news.xml'],
+  ],
+  hardwareEn: [
     ['TechPowerUp', 'https://www.techpowerup.com/rss/news'],
     ["Tom's Hardware", 'https://www.tomshardware.com/feeds/all'],
     ['Overclock3D', 'https://overclock3d.net/feed/'],
     ['Notebookcheck', 'https://www.notebookcheck.net/RSS-Feed-Notebook-Reviews.8156.0.html'],
   ],
-  games: [
+  gamesKo: [
+    ['인벤', 'https://www.inven.co.kr/webzine/news/rss.php'],
+    ['게임메카', 'https://www.gamemeca.com/rss.php'],
+    ['루리웹 PC', 'https://bbs.ruliweb.com/news/board/1003/rss'],
+    ['루리웹 콘솔', 'https://bbs.ruliweb.com/news/board/1001/rss'],
+  ],
+  gamesEn: [
     ['IGN', 'https://feeds.feedburner.com/ign/games-all'],
     ['PC Gamer', 'https://www.pcgamer.com/rss/'],
     ['Gematsu', 'https://www.gematsu.com/feed'],
-    ['인벤', 'https://www.inven.co.kr/webzine/news/rss.php'],
   ],
 };
 
@@ -42,15 +53,50 @@ export const CHANNELS = {
   ],
 };
 
-// 취향 태그 (AniList 태그명 그대로). Romance 장르는 전부 제외.
-export const TASTE_QUERY_TAGS = ['Isekai', 'Martial Arts', 'Video Games', 'Reincarnation', 'Super Power', 'Dungeon'];
-export const LIKE_TAGS = ['Isekai', 'Reincarnation', 'Video Games', 'Dungeon', 'Super Power',
-  'Martial Arts', 'Wuxia', 'Cultivation', 'Death Game', 'Revenge'];
+// 취향 장르/태그 (라프텔·네이버 표기). 많이 걸릴수록 위로.
+export const TASTE = ['이세계', '추방물', '무협', '먼치킨', '회귀', '환생', '빙의', '게임', '헌터', '던전', '레벨업', '복수', '판타지', '액션', '현판', '사극'];
+// 제외 장르/태그
+export const EXCLUDE = /로맨스|순정|로판|BL|GL|백합|연애|하렘/;
 
 async function get(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { 'user-agent': UA, ...opts.headers }, signal: AbortSignal.timeout(20000) });
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return r;
+}
+
+// EUC-KR 같은 비 UTF-8 페이지도 읽는다 (보드나라)
+async function getText(url) {
+  const r = await get(url);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  const head = new TextDecoder('latin1').decode(buf.slice(0, 300));
+  const enc = (r.headers.get('content-type')?.match(/charset=([\w-]+)/i)?.[1] || head.match(/encoding=["']([\w-]+)/i)?.[1] || 'utf-8').toLowerCase();
+  return new TextDecoder(enc).decode(buf);
+}
+
+// 국내 기사 본문에서 해외 원문(출처) 링크 찾기. 못 찾으면 null.
+const ORIGIN_HOSTS = /(techpowerup|videocardz|tomshardware|wccftech|guru3d|overclock3d|notebookcheck|pcgamer|ign\.com|gematsu|kotaku|eurogamer|theverge|anandtech|computerbase|hardwareluxx|ithome|mydrivers|chiphell|benchlife|igorslab|pcgameshardware|tweaktown|techradar|engadget|gamesindustry|videogameschronicle|famitsu|4gamer|bloomberg|reuters|x\.com|twitter\.com|reddit\.com|bilibili|weibo|steampowered|nvidia\.com|amd\.com|intel\.com|asus\.com|msi\.com|gigabyte\.com|digitimes|trendforce|tomsguide|9to5|neowin|hothardware|servethehome|techspot|pcworld|arstechnica|polygon|gamespot|gamerant|dsogaming|playstation\.com|xbox\.com|nintendo|blizzard|ea\.com|ubisoft|capcom|square-enix|bandainamco)/i;
+export function findOrigin(html, pageUrl) {
+  const self = new URL(pageUrl).host;
+  for (const [raw] of html.matchAll(/https?:\/\/[^\s"'<>()\\]+/g)) {
+    let u;
+    try { u = new URL(raw.replace(/&amp;/g, '&')); } catch { continue; }
+    if (u.host === self || !ORIGIN_HOSTS.test(u.host)) continue;
+    if (/\.(css|js|png|jpe?g|gif|webp|ico|svg|woff2?)$/i.test(u.pathname) || /share|intent|widget|embed|oembed/i.test(u.href)) continue;
+    if (/(^|\.)(x|twitter)\.com$/.test(u.host) && !/\/status\//.test(u.pathname)) continue; // 프로필 링크 제외
+    if (u.pathname.split('/').filter(Boolean).length < 2 && !u.search) continue;           // 홈/계정 루트 제외
+    return u.href;
+  }
+  return null;
+}
+
+async function withOrigins(items) {
+  await pool(items, 4, async (it) => { it.origin = findOrigin(await getText(it.url), it.url); });
+  return items;
+}
+
+async function pool(xs, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => { while (i < xs.length) await fn(xs[i++]).catch(() => {}); }));
 }
 
 const arr = (x) => (x == null ? [] : Array.isArray(x) ? x : [x]);
@@ -89,7 +135,7 @@ export function parseRss(body, source) {
 async function feeds(list, hours = 36, limit = 30) {
   const errors = [];
   const all = (await Promise.all(list.map(async ([name, url]) => {
-    try { return parseRss(await (await get(url)).text(), name); } catch (e) { errors.push(`${name}: ${e.message}`); return []; }
+    try { return parseRss(await getText(url), name); } catch (e) { errors.push(`${name}: ${e.message}`); return []; }
   }))).flat();
   const since = Date.now() - hours * 36e5;
   // 소스 하나가 목록을 독점하지 않게 소스당 최대 8개
@@ -99,14 +145,22 @@ async function feeds(list, hours = 36, limit = 30) {
   return { items, errors };
 }
 
-export async function hardware() {
-  const r = await feeds(FEEDS.hardware);
-  return { groups: [{ title: '최신 하드웨어 뉴스', items: r.items }], errors: r.errors };
+// 홍보성 보도자료 제외
+const PROMO = /행사|증정|이벤트|기념|프로모션|경품|할인|특가|사은품|체험단/;
+
+// 국내 뉴스(해외 원문 링크 포함) + 해외 뉴스(번역) 2단 구성
+async function koEn(ko, en, koTitle, enTitle) {
+  const [k, e] = await Promise.all([feeds(ko, 36, 40), feeds(en, 36, 12)]);
+  k.items = k.items.filter((x) => !PROMO.test(x.title)).slice(0, 24);
+  await withOrigins(k.items);
+  return { groups: [{ title: koTitle, items: k.items }, { title: enTitle, items: e.items }], errors: [...k.errors, ...e.errors] };
 }
+
+export const hardware = () => koEn(FEEDS.hardwareKo, FEEDS.hardwareEn, '국내 하드웨어 소식', '해외 하드웨어 소식 · 번역');
 
 export async function games() {
   const [news, steam] = await Promise.all([
-    feeds(FEEDS.games),
+    koEn(FEEDS.gamesKo, FEEDS.gamesEn, '국내 게임 소식', '해외 게임 소식 · 번역'),
     get('https://store.steampowered.com/api/featuredcategories?cc=kr&l=koreana').then((r) => r.json()).catch((e) => ({ error: e.message })),
   ]);
   const toItem = (g, meta) => ({
@@ -115,11 +169,12 @@ export async function games() {
     meta: [meta, g.discount_percent ? `-${g.discount_percent}%` : null, g.final_price ? `₩${(g.final_price / 100).toLocaleString('ko-KR')}` : null].filter(Boolean).join(' · '),
   });
   const uniq = (xs) => [...new Map(xs.map((g) => [g.id, g])).values()];
-  const groups = [{ title: '게임 뉴스', items: news.items }];
+  const groups = [news.groups[0]];
   if (!steam.error) {
     groups.push({ title: 'Steam 최고 판매', items: uniq(arr(steam.top_sellers?.items)).slice(0, 10).map((g) => toItem(g, '최고 판매')) });
     groups.push({ title: 'Steam 신작', items: uniq(arr(steam.new_releases?.items)).slice(0, 10).map((g) => toItem(g, '신작')) });
   }
+  groups.push(news.groups[1]);
   return { groups, errors: [...news.errors, ...(steam.error ? [`Steam: ${steam.error}`] : [])] };
 }
 
@@ -181,54 +236,76 @@ export async function youtube() {
 
 export const fmtViews = (n) => (n >= 1e4 ? `${(n / 1e4).toFixed(n >= 1e5 ? 0 : 1)}만회` : `${n.toLocaleString()}회`);
 
-const ANI_FIELDS = `id siteUrl type format countryOfOrigin title{romaji english native} coverImage{large}
-  bannerImage description(asHtml:false) genres averageScore episodes chapters status startDate{year month day}
-  tags{name rank}`;
+// 취향 점수: TASTE 단어가 몇 개 걸리는지
+export const tasteScore = (words) => TASTE.filter((t) => words.some((w) => w.includes(t))).length;
+const byTaste = (a, b) => b.score - a.score;
+const WEEKDAY = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const strip = ({ score, excluded, synopsis, author, star, ...x }) => x;
 
-function seasonNow(d = new Date()) {
-  const m = d.getUTCMonth();
-  return { season: ['WINTER', 'WINTER', 'SPRING', 'SPRING', 'SPRING', 'SUMMER', 'SUMMER', 'SUMMER', 'FALL', 'FALL', 'FALL', 'WINTER'][m], year: m === 11 ? d.getUTCFullYear() + 1 : d.getUTCFullYear() };
-}
-
-export function aniItem(m) {
-  const fmt = { TV: 'TV 애니', MOVIE: '극장판', ONA: 'ONA', OVA: 'OVA', MANGA: m.countryOfOrigin === 'KR' ? '웹툰' : m.countryOfOrigin === 'CN' ? '만화(중국)' : '만화', NOVEL: m.countryOfOrigin === 'KR' ? '웹소설' : '라노벨', ONE_SHOT: '단편' }[m.format] ?? m.format;
-  const liked = (m.tags ?? []).filter((t) => LIKE_TAGS.includes(t.name) && t.rank >= 50).map((t) => t.name);
-  const title = m.countryOfOrigin === 'KR' && m.title.native ? m.title.native : m.title.english || m.title.romaji;
+// 라프텔: 지금 방영 중인 애니 (한국어 제목·장르)
+export function laftelItem(a) {
+  const genres = a.genres ?? [];
   return {
-    title, titleOrig: m.title.native, url: m.siteUrl, source: 'AniList', image: m.coverImage?.large, time: null,
-    summary: clean(m.description, 200), tags: liked,
-    meta: [fmt, m.averageScore ? `★ ${m.averageScore}` : null, ...m.genres.slice(0, 3)].filter(Boolean).join(' · '),
+    title: a.name, url: `https://laftel.net/item/${a.id}`, source: '라프텔', image: a.img, time: Date.parse(a.latest_published_datetime) || null,
+    meta: [arr(a.distributed_air_times).join('·'), ...genres.slice(0, 3)].filter(Boolean).join(' · '),
+    tags: genres.filter((g) => TASTE.includes(g)).slice(0, 3), score: tasteScore(genres), excluded: genres.some((g) => EXCLUDE.test(g)) || !!a.is_adult,
   };
 }
+async function laftel() {
+  const list = await (await get('https://api.laftel.net/api/search/v2/daily/', { headers: { laftel: 'TeJava' } })).json();
+  return list.map(laftelItem).filter((x) => !x.excluded).sort(byTaste).slice(0, 18);
+}
 
-async function anilist(query) {
-  const r = await get('https://graphql.anilist.co', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) });
-  return (await r.json()).data.Page.media.filter((m) => !m.genres.includes('Romance')).map(aniItem);
+// 네이버 웹툰: 오늘 요일 인기순 + 신작. 태그는 작품별 info API 에서.
+async function naverInfo(id) {
+  const j = await (await get(`https://comic.naver.com/api/article/list/info?titleId=${id}`)).json();
+  return { tags: (j.curationTagList ?? []).map((t) => t.tagName), synopsis: clean(j.synopsis, 160) };
+}
+async function naverWebtoon(kind) {
+  const url = kind === 'new' ? 'https://comic.naver.com/api/webtoon/titlelist/new?order=update' : 'https://comic.naver.com/api/webtoon/titlelist/weekday?order=user';
+  const j = await (await get(url)).json();
+  const today = WEEKDAY[new Date(Date.now() + 9 * 36e5).getUTCDay()];
+  const list = (kind === 'new' ? j.titleList : j.titleListMap[today]).filter((t) => !t.adult).slice(0, 30);
+  const items = list.map((t) => ({ id: t.titleId, title: t.titleName, url: `https://comic.naver.com/webtoon/list?titleId=${t.titleId}`, source: '네이버웹툰', image: t.thumbnailUrl, time: null, author: t.author, star: t.starScore, tags: [] }));
+  await pool(items, 5, async (it) => Object.assign(it, await naverInfo(it.id)));
+  return items.map(({ id, ...it }) => ({
+    ...it, summary: it.synopsis, meta: [it.author, it.star ? `★ ${it.star.toFixed(2)}` : null].filter(Boolean).join(' · '),
+    score: tasteScore(it.tags), excluded: it.tags.some((t) => EXCLUDE.test(t)),
+    tags: it.tags.filter((t) => TASTE.some((w) => t.includes(w))).slice(0, 3),
+  })).filter((x) => !x.excluded).sort(byTaste).slice(0, 15);
+}
+
+// 네이버 시리즈 웹소설 일간 TOP (판타지·현판·무협·라노벨 각 상위권)
+export function parseSeries(html, genre) {
+  const parts = html.split('<div class="comic_cont">');
+  return parts.slice(1).map((c, i) => {
+    const id = c.match(/productNo=(\d+)/)?.[1];
+    const img = parts[i].match(/<img src="([^"]+)"[^>]*alt=/g)?.at(-1)?.match(/src="([^"]+)/)?.[1] ?? null;
+    return id && {
+      title: clean(c.match(/productNo=\d+"[^>]*>([^<]+)<\/a>/)?.[1] ?? '', 100), url: `https://series.naver.com/novel/detail.series?productNo=${id}`,
+      source: '네이버시리즈', image: img?.replace(/\?type=m79$/, '?type=m260') ?? null, time: null,
+      summary: clean(c.match(/<p class="dsc">([\s\S]*?)<\/p>/)?.[1] ?? '', 150),
+      meta: [`★ ${c.match(/score_num">([\d.]+)/)?.[1] ?? '-'}`, clean(c.match(/class="author">([^<]+)/)?.[1] ?? '')].filter(Boolean).join(' · '), tags: [genre],
+    };
+  }).filter((x) => x && x.title);
+}
+async function series() {
+  const cats = [['판타지', 202], ['현판', 208], ['무협', 206], ['라이트노벨', 205]];
+  const lists = await Promise.all(cats.map(async ([g, c]) => parseSeries(await getText(`https://series.naver.com/novel/top100List.series?rankingTypeCode=DAILY&categoryCode=${c}`), g).slice(0, 5)));
+  return lists.flat();
 }
 
 export async function anime() {
   const errors = [];
-  const { season, year } = seasonNow();
-  const q = (args) => `{Page(perPage:24){media(${args},isAdult:false,genre_not_in:["Romance"]){${ANI_FIELDS}}}}`;
   const jobs = [
-    ['이번 분기 신작 애니', [q(`type:ANIME,season:${season},seasonYear:${year},sort:POPULARITY_DESC`)]],
-    // tag_in 은 AND 조건이라 태그별로 따로 조회 후 합친다
-    ['취향 저격 · 이세계/게임/무협/먼치킨', TASTE_QUERY_TAGS.map((t) => q(`tag_in:["${t}"],status:RELEASING,popularity_greater:10000,sort:TRENDING_DESC`).replace('perPage:24', 'perPage:8'))],
-    ['요즘 뜨는 만화·웹툰·라노벨', [q('type:MANGA,sort:TRENDING_DESC')]],
+    ['방영 중인 애니 · 라프텔', laftel],
+    ['오늘의 인기 웹툰 · 네이버', () => naverWebtoon('weekday')],
+    ['신작 웹툰 · 네이버', () => naverWebtoon('new')],
+    ['웹소설 일간 TOP · 네이버 시리즈', series],
   ];
   const groups = [];
-  const seen = new Set();
-  for (const [title, queries] of jobs) {
-    try {
-      const lists = [];
-      for (const query of queries) lists.push(await anilist(query)); // 순차: AniList 레이트리밋 회피
-      // 라운드로빈으로 섞고, 앞 그룹에 이미 나온 작품은 제외
-      const merged = [];
-      for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) for (const l of lists) if (l[i]) merged.push(l[i]);
-      const items = merged.filter((x) => !seen.has(x.url) && seen.add(x.url))
-        .sort((a, b) => b.tags.length - a.tags.length).slice(0, 16); // 취향 태그 많은 작품을 위로
-      groups.push({ title, items });
-    } catch (e) { errors.push(`AniList ${title}: ${e.message}`); }
+  for (const [title, run] of jobs) {
+    try { groups.push({ title, items: (await run()).map(strip) }); } catch (e) { errors.push(`${title}: ${e.message}`); }
   }
   return { groups, errors };
 }
@@ -238,5 +315,5 @@ export const SECTIONS = [
   { id: 'games', title: '게임', run: games },
   { id: 'github', title: 'GitHub', run: github },
   { id: 'youtube', title: '유튜브', run: youtube },
-  { id: 'anime', title: '애니·웹툰', run: anime },
+  { id: 'anime', title: '애니·웹툰·소설', run: anime },
 ];

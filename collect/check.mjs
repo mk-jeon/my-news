@@ -1,6 +1,6 @@
 // 오프라인 셀프체크: npm run check
 import assert from 'node:assert/strict';
-import { parseRss, parseTrending, parseYoutube, clean, aniItem, fmtViews } from './sources.mjs';
+import { parseRss, parseTrending, parseYoutube, clean, fmtViews, laftelItem, parseSeries, findOrigin, tasteScore } from './sources.mjs';
 import { needsKo } from './translate.mjs';
 
 const rss = parseRss(`<rss><channel><item><title>RTX 6090 &amp; more</title><link>https://x.com/a</link>
@@ -25,7 +25,21 @@ assert.ok(needsKo('Nvidia launches GPU'));
 assert.ok(!needsKo('엔비디아 RTX 출시'));
 assert.ok(!needsKo('RTX'));
 
-const kr = aniItem({ siteUrl: 'u', format: 'MANGA', countryOfOrigin: 'KR', title: { native: '화산귀환', romaji: 'Hwasan' }, genres: ['Action'], tags: [{ name: 'Wuxia', rank: 90 }, { name: 'Isekai', rank: 10 }] });
-assert.deepEqual([kr.title, kr.meta, kr.tags], ['화산귀환', '웹툰 · Action', ['Wuxia']]);
+// 라프텔: 로맨스 제외, 취향 장르 태그
+const lf = laftelItem({ id: 1, name: '전생검', img: 'i', genres: ['이세계', '액션', '판타지'], distributed_air_times: ['목요일'] });
+assert.deepEqual([lf.url, lf.meta, lf.tags, lf.excluded], ['https://laftel.net/item/1', '목요일 · 이세계 · 액션 · 판타지', ['이세계', '액션', '판타지'], false]);
+assert.ok(laftelItem({ id: 2, name: 'x', genres: ['로맨스', '코미디'] }).excluded);
+assert.equal(tasteScore(['무협/사극', '먼치킨', '개그']), 3); // 무협+사극+먼치킨
+
+// 네이버 시리즈 랭킹 HTML
+const se = parseSeries(`<a href="/novel/detail.series?productNo=7"><img src="https://c/x.jpg?type=m79" alt="t"></a><div class="comic_cont"><h3><a href="/novel/detail.series?productNo=7" class="NPI=a:content">화산귀환 [독점]</a></h3>
+<p class="info"><em class="score_num">9.8</em><span class="author">비가</span></p><p class="dsc">대 화산파&nbsp;13대 제자</p></div>`, '무협');
+assert.deepEqual([se[0].title, se[0].image, se[0].summary, se[0].meta], ['화산귀환 [독점]', 'https://c/x.jpg?type=m260', '대 화산파 13대 제자', '★ 9.8 · 비가']);
+
+// 해외 원문 링크: 프로필·이미지·자기 사이트는 건너뛰고 기사 링크만
+const page = `<a href="https://gigglehd.com/gg/1">x</a><img src="https://videocardz.com/a/b.jpg"><a href="https://x.com/Warcraft">p</a>
+<a href="https://x.com/jay/status/123">t</a><a href="https://videocardz.com/newz/amd-thing">s</a>`;
+assert.equal(findOrigin(page, 'https://gigglehd.com/gg/hard/1'), 'https://x.com/jay/status/123');
+assert.equal(findOrigin('<a href="https://www.naver.com/news/1">n</a>', 'https://a.kr/1'), null);
 
 console.log('check ok');

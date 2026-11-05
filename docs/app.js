@@ -41,7 +41,9 @@ const dayLabel = (d) => { const x = new Date(d + 'T00:00:00Z'); return `${x.getU
 function card(it, { hero = false, date = state.date } = {}) {
   const saved = !!scraps[it.id];
   const img = it.image ? `<div class="thumb"><img src="${esc(safeUrl(it.image))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></div>` : '';
-  const en = it.translated ? `<a class="chip" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener" title="${esc(it.titleEn || it.summaryEn)}">EN 원문${svg('ext')}</a>` : '';
+  // 번역된 해외 기사 → 영문 원문 / 국내 기사가 해외 소스를 인용 → 해외 원문
+  const en = it.origin ? `<a class="chip" href="${esc(safeUrl(it.origin))}" target="_blank" rel="noopener">해외 원문${svg('ext')}</a>`
+    : it.translated ? `<a class="chip" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener" title="${esc(it.titleEn || it.summaryEn)}">영문 원문${svg('ext')}</a>` : '';
   const tags = (it.tags ?? []).slice(0, 3).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
   return `<article class="card${hero ? ' hero' : ''}${img ? '' : ' noimg'}" data-id="${esc(it.id)}">
     ${img}
@@ -117,7 +119,8 @@ function render() {
 async function load(date) {
   state.date = date;
   try {
-    state.data = days[date] ?? await fetch(`data/${date}.json`).then((r) => { if (!r.ok) throw r.status; return r.json(); });
+    // 서버 최신본 우선, 못 받으면(오프라인·삭제) 통째 저장해 둔 사본
+    state.data = await fetch(`data/${date}.json`).then((r) => { if (!r.ok) throw r.status; return r.json(); }).catch((e) => { if (days[date]) return days[date]; throw e; });
   } catch { state.data = null; toast('이 날짜 데이터를 못 불러왔어요'); }
   render();
   scrollTo({ top: 0 });
