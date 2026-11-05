@@ -6,11 +6,14 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@' });
 const DAY = 864e5;
 
+// 세 번째 값(정규식)이 있으면 제목이 맞는 글만 남긴다
+const HW_WORDS = /CPU|GPU|그래픽|메모리|SSD|HDD|NAS|모니터|키보드|마우스|메인보드|파워|케이스|쿨러|노트북|라데온|지포스|RTX|RX ?\d|인텔|AMD|엔비디아|NVIDIA|DDR|D램|램|헤드셋|게이밍|PC|프로세서|칩셋|반도체|라이젠|코어|SoC|스냅드래곤|공유기|웹캠|스피커|태블릿/i;
+
 // 국내 소스가 메인, 해외 소스는 번역해서 보조 그룹으로
 export const FEEDS = {
   hardwareKo: [
     ['기글하드웨어', 'https://gigglehd.com/gg/hard/rss'],
-    ['보드나라', 'https://www.bodnara.co.kr/rss/news.xml'],
+    ['보드나라', 'https://www.bodnara.co.kr/rss/news.xml', HW_WORDS],
   ],
   hardwareEn: [
     ['TechPowerUp', 'https://www.techpowerup.com/rss/news'],
@@ -107,6 +110,8 @@ export function clean(html, max = 220) {
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'")
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&(lsquo|rsquo|ldquo|rdquo|hellip|middot|ndash|mdash|times|bull);/g, (_, n) => ({ lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', hellip: '…', middot: '·', ndash: '–', mdash: '—', times: '×', bull: '•' })[n])
     .replace(/\s+/g, ' ').trim();
   return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
 }
@@ -134,8 +139,8 @@ export function parseRss(body, source) {
 
 async function feeds(list, hours = 36, limit = 30) {
   const errors = [];
-  const all = (await Promise.all(list.map(async ([name, url]) => {
-    try { return parseRss(await getText(url), name); } catch (e) { errors.push(`${name}: ${e.message}`); return []; }
+  const all = (await Promise.all(list.map(async ([name, url, only]) => {
+    try { return parseRss(await getText(url), name).filter((x) => !only || only.test(x.title)); } catch (e) { errors.push(`${name}: ${e.message}`); return []; }
   }))).flat();
   const since = Date.now() - hours * 36e5;
   // 소스 하나가 목록을 독점하지 않게 소스당 최대 8개
@@ -146,12 +151,14 @@ async function feeds(list, hours = 36, limit = 30) {
 }
 
 // 홍보성 보도자료 제외
+const EN_PROMO = /(deals?|save|saving|discount|giveaway|grab|coupon|% off|price cut|lowest price)/i;
 const PROMO = /컬래버|콜라보|행사|증정|이벤트|기념|프로모션|경품|할인|특가|사은품|체험단/;
 
 // 국내 뉴스(해외 원문 링크 포함) + 해외 뉴스(번역) 2단 구성
 async function koEn(ko, en, koTitle, enTitle) {
-  const [k, e] = await Promise.all([feeds(ko, 36, 40), feeds(en, 36, 12)]);
+  const [k, e] = await Promise.all([feeds(ko, 36, 40), feeds(en, 36, 20)]);
   k.items = k.items.filter((x) => !PROMO.test(x.title)).slice(0, 24);
+  e.items = e.items.filter((x) => !EN_PROMO.test(x.title)).slice(0, 12);
   await withOrigins(k.items);
   return { groups: [{ title: koTitle, items: k.items }, { title: enTitle, items: e.items }], errors: [...k.errors, ...e.errors] };
 }

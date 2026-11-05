@@ -2,6 +2,7 @@
 const VAPID_PUBLIC_KEY = 'BNBGlzDKbQsjlHvbsGKW8JOIY5eDSm4ueZbnPIFN5uZqQsNC3bqIlZcGdSwW-H6jIO9RS6N07PVDNZa2j4xNIik';
 
 const ICON = {
+  rail: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',
   brief: '<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
   hardware: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   games: '<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><rect x="2" y="6" width="20" height="12" rx="6"/>',
@@ -23,6 +24,8 @@ const store = {
 };
 let scraps = store.get('mark.items', {});   // id → item(+date)
 let days = store.get('mark.days', {});      // date → 전체 데이터 사본
+
+document.body.classList.toggle('rail-min', store.get('mark.railMin', false));
 
 const state = { dates: [], date: null, data: null, tab: new URLSearchParams(location.search).get('t') || 'brief' };
 
@@ -67,8 +70,11 @@ const findItem = (id) => scraps[id] || (state.data && allItems(state.data).find(
 function renderTabs() {
   const secs = state.data?.sections ?? [];
   const tabs = [['brief', '브리핑', null], ...secs.map((s) => [s.id, s.title, s.groups.reduce((n, g) => n + g.items.length, 0)]), ['scrap', '스크랩', Object.keys(scraps).length]];
-  $('#tabs').innerHTML = tabs.map(([id, t, n]) =>
-    `<button class="tab" role="tab" data-tab="${esc(id)}" aria-selected="${state.tab === id}">${svg(ICON[id] ? id : 'brief')}${esc(t)}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+  const min = document.body.classList.contains('rail-min');
+  // 펼친 화면 전용: 사이드바 접기/펴기 버튼 (접힌 폴드에선 CSS 로 숨김)
+  $('#tabs').innerHTML = `<button class="tab rail-toggle" data-rail aria-label="${min ? '사이드바 펼치기' : '사이드바 접기'}" title="${min ? '펼치기' : '접기'}">${svg('rail')}<span class="label">접기</span></button>`
+    + tabs.map(([id, t, n]) =>
+      `<button class="tab" role="tab" data-tab="${esc(id)}" aria-selected="${state.tab === id}" title="${esc(t)}">${svg(ICON[id] ? id : 'brief')}<span class="label">${esc(t)}</span>${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('');
   $('#tabs').setAttribute('role', 'tablist');
 }
 
@@ -127,6 +133,7 @@ async function load(date) {
 }
 
 document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-rail]')) { store.set('mark.railMin', document.body.classList.toggle('rail-min')); renderTabs(); return; }
   const t = e.target.closest('[data-tab],[data-save],[data-day]');
   if (!t) return;
   if (t.dataset.tab) { state.tab = t.dataset.tab; render(); scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); return; }

@@ -153,6 +153,15 @@ details summary { cursor: pointer; font-size: 13.5px; color: var(--blue-ink); fo
   .brief { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .hello h1 { font-size: 30px; }
 }
+.rail-toggle { display: none; }
+@media (min-width: 720px) {
+  .shell { transition: grid-template-columns .2s ease; }
+  .rail-toggle { display: flex; color: var(--muted); margin-bottom: 6px; }
+  .rail-min .shell { grid-template-columns: 68px 1fr; }
+  .rail-min .tabs { padding-inline: 8px; }
+  .rail-min .tab { justify-content: center; padding: 0; }
+  .rail-min .tab .label, .rail-min .tab .n { display: none; }
+}
 @media (min-width: 1180px) {
   .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .brief { grid-template-columns: repeat(3, minmax(0, 1fr)); }

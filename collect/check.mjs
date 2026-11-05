@@ -21,6 +21,7 @@ assert.equal(fmtViews(54321), '5.4만회');
 assert.equal(fmtViews(1234567), '123만회');
 
 assert.equal(clean('a'.repeat(300), 10).length, 10);
+assert.equal(clean('&lsquo;이미지 2.6&rsquo; &#x27;A&#x27;'), '‘이미지 2.6’ \'A\'');
 assert.ok(needsKo('Nvidia launches GPU'));
 assert.ok(!needsKo('엔비디아 RTX 출시'));
 assert.ok(!needsKo('RTX'));
