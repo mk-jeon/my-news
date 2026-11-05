@@ -50,11 +50,17 @@
     </div>
     <section>
       <h3>매일 아침 알림</h3>
-      <p class="muted">홈 화면에 설치한 앱에서 켜 주세요. 아래 코드가 나오면 Claude에게 붙여넣어 주면 연결해 줍니다 (GitHub Secret <code>PUSH_SUBSCRIPTIONS</code>).</p>
-      <button type="button" class="btn primary" id="enablePush">알림 켜기</button>
-      <textarea id="subOut" readonly rows="5" hidden aria-label="알림 구독 코드"></textarea>
-      <button type="button" class="btn" id="copySub" hidden>코드 복사</button>
-      <p class="muted" id="pushMsg" aria-live="polite"></p>
+      <div class="state" id="pushState" aria-live="polite"><span class="dot"></span><div><b>확인 중…</b><p></p></div></div>
+      <div class="row">
+        <button type="button" class="btn primary" id="enablePush" hidden>알림 켜기</button>
+        <button type="button" class="btn" id="testPush" hidden>테스트 알림 보내기</button>
+      </div>
+      <details id="subBox" hidden>
+        <summary>연결 코드 보기</summary>
+        <p class="muted">이 코드를 Claude에게 보내면 서버에 등록해 줘요. 등록되면 다음 아침부터 이 화면에 "연결 완료"가 떠요.</p>
+        <textarea id="subOut" readonly rows="4" aria-label="알림 연결 코드"></textarea>
+        <button type="button" class="btn" id="copySub">코드 복사</button>
+      </details>
     </section>
     <section>
       <h3>스크랩 데이터</h3>

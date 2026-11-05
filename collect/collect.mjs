@@ -36,3 +36,9 @@ const idx = JSON.parse(await readFile(idxUrl, 'utf8').catch(() => '{"dates":[]}'
 idx.dates = [...new Set([date, ...idx.dates])].sort().reverse();
 await writeFile(idxUrl, JSON.stringify(idx));
 console.log(`[write] ${count} items`);
+
+// 앱 설정 화면의 "연결 완료" 표시용. 구독 주소 원문이 아니라 SHA-256 해시만 공개한다.
+if (process.env.PUSH_SUBSCRIPTIONS) {
+  const ids = [JSON.parse(process.env.PUSH_SUBSCRIPTIONS)].flat().map((s) => createHash('sha256').update(s.endpoint).digest('hex'));
+  await writeFile(new URL('push-ids.json', DATA), JSON.stringify(ids));
+}

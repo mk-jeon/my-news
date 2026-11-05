@@ -3,6 +3,8 @@ on:
   schedule:
     - cron: '30 20 * * *'  # 05:30 KST 시작 (GitHub cron 은 수십 분 늦을 수 있어 여유를 둠)
   workflow_dispatch:
+    inputs:
+      notify: { description: '수동 실행 때도 알림 보내기', type: boolean, default: false }
 permissions:
   contents: write
   pages: write
@@ -21,6 +23,7 @@ jobs:
       - run: npm run collect
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
       - name: 날짜별 데이터 커밋 (아카이브 + 60일 비활성 cron 정지 방지)
         run: |
           git config user.name "mark-bot"
@@ -35,6 +38,7 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
       - name: 알림 (배포 후, 06:00 KST 까지 대기)
+        if: github.event_name == 'schedule' || inputs.notify
         run: |
           # 예약 실행일 때만 06:00 KST(21:00 UTC) 까지 기다린다. 이미 지났으면 바로 보냄.
           if [ "${{ github.event_name }}" = "schedule" ]; then

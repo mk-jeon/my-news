@@ -146,7 +146,7 @@ async function feeds(list, hours = 36, limit = 30) {
 }
 
 // 홍보성 보도자료 제외
-const PROMO = /행사|증정|이벤트|기념|프로모션|경품|할인|특가|사은품|체험단/;
+const PROMO = /컬래버|콜라보|행사|증정|이벤트|기념|프로모션|경품|할인|특가|사은품|체험단/;
 
 // 국내 뉴스(해외 원문 링크 포함) + 해외 뉴스(번역) 2단 구성
 async function koEn(ko, en, koTitle, enTitle) {

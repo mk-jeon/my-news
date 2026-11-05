@@ -167,20 +167,53 @@ $('#importScrap').onchange = async (e) => {
     store.set('mark.items', scraps); store.set('mark.days', days); toast('가져왔어요'); render();
   } catch { toast('파일을 읽지 못했어요'); }
 };
+// 알림 상태: 이 기기 구독 여부 + 서버(GitHub Secret)에 등록됐는지(구독 주소 해시 비교)
+const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+function pushState(kind, title, desc) {
+  $('#pushState').className = `state ${kind}`;
+  $('#pushState').querySelector('b').textContent = title;
+  $('#pushState').querySelector('p').textContent = desc;
+}
+async function refreshPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return pushState('off', '이 화면에선 알림을 못 써요', '홈 화면의 MARK 앱으로 열어 주세요.');
+  if (Notification.permission === 'denied') return pushState('off', '알림이 차단돼 있어요', '폰 설정 → 애플리케이션 → MARK → 알림에서 허용해 주세요.');
+  const reg = await navigator.serviceWorker.ready;
+  const sub = Notification.permission === 'granted' && (await reg.pushManager.getSubscription());
+  $('#enablePush').hidden = !!sub;
+  $('#testPush').hidden = $('#subBox').hidden = !sub;
+  if (!sub) return pushState('off', '알림 꺼짐', '아래 버튼을 누르면 이 기기에서 알림을 받을 준비를 해요.');
+  $('#subOut').value = JSON.stringify(sub);
+  const ids = await fetch('data/push-ids.json', { cache: 'no-cache' }).then((r) => r.json()).catch(() => []);
+  if (ids.includes(await sha(sub.endpoint))) pushState('ok', '연결 완료', '매일 아침 6시에 오늘의 브리프를 알려드려요.');
+  else pushState('warn', '거의 다 됐어요', '이 기기는 준비됐어요. 아래 "연결 코드"를 Claude에게 보내면 서버 등록이 끝나요. (방금 등록했다면 다음 아침 수집 후 "연결 완료"로 바뀌어요)');
+}
+$('#openSettings').addEventListener('click', refreshPush);
 $('#enablePush').onclick = async () => {
-  const msg = $('#pushMsg');
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) { msg.textContent = '이 브라우저는 웹 푸시를 지원하지 않아요. 홈 화면에 설치한 앱에서 시도해 주세요.'; return; }
-  if (await Notification.requestPermission() !== 'granted') { msg.textContent = '알림 권한이 거부됐어요. 브라우저 사이트 설정에서 허용해 주세요.'; return; }
+  if (await Notification.requestPermission() !== 'granted') return refreshPush();
   const reg = await navigator.serviceWorker.ready;
   const key = Uint8Array.from(atob(VAPID_PUBLIC_KEY.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
-  $('#subOut').value = JSON.stringify(sub);
-  $('#subOut').hidden = $('#copySub').hidden = false;
-  msg.textContent = '알림 켜짐. 이 코드를 Claude에게 보내 주세요.';
+  await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  await refreshPush();
+  $('#subBox').open = true;
+};
+$('#testPush').onclick = async () => {
+  const reg = await navigator.serviceWorker.ready;
+  await reg.showNotification('MARK · 테스트 알림', { body: '알림이 잘 보이면 준비 끝! 내일 아침 6시에 만나요.', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'test' });
+  toast('알림창을 확인해 보세요');
 };
 $('#copySub').onclick = () => navigator.clipboard.writeText($('#subOut').value).then(() => toast('복사했어요'));
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+// 앱을 보고 있으면 알림창의 MARK 알림과 아이콘 숫자(배지)를 지운다
+async function clearBadge() {
+  if (document.visibilityState !== 'visible' || !('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.ready;
+  (await reg.getNotifications()).forEach((n) => n.close());
+  navigator.clearAppBadge?.();
+}
+document.addEventListener('visibilitychange', clearBadge);
+clearBadge();
 
 // 크롬이 설치 가능하다고 판단하면 상단에 설치 버튼 노출
 let installEvt;
