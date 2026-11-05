@@ -5,8 +5,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          U="https://api.laftel.net/api/search/v2/daily/"
-          curl -s -o /dev/null -w "plain %{http_code}\n" "$U"
-          curl -s -o /dev/null -w "hdr %{http_code}\n" -H "laftel: TeJava" -H "Origin: https://laftel.net" -H "Referer: https://laftel.net/" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36" "$U"
-          curl -s -o /dev/null -w "web %{http_code}\n" -A "Mozilla/5.0" https://laftel.net/daily
-          curl -s -I -A "Mozilla/5.0" "$U" | head -12
+          curl -s -o /dev/null -w "anissia %{http_code}\n" -A "Mozilla/5.0" https://api.anissia.net/anime/schedule/0
+          curl -s -o /dev/null -w "series %{http_code}\n" -A "Mozilla/5.0" "https://series.naver.com/novel/top100List.series?rankingTypeCode=DAILY&categoryCode=202"
