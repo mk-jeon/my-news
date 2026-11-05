@@ -1,5 +1,5 @@
 // 같은 출처 요청은 전부 네트워크 우선(HTTP 캐시 무시) → 실패 시 캐시. 배포 직후에도 셸·데이터 버전이 섞이지 않는다.
-const V = 'mark-v2';
+const V = 'mark-v3';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k))))); self.clients.claim(); });

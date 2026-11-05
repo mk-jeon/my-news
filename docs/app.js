@@ -179,6 +179,12 @@ $('#copySub').onclick = () => navigator.clipboard.writeText($('#subOut').value).
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
+// 크롬이 설치 가능하다고 판단하면 상단에 설치 버튼 노출
+let installEvt;
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; $('#install').hidden = false; });
+$('#install').onclick = async () => { installEvt?.prompt(); if ((await installEvt?.userChoice)?.outcome === 'accepted') $('#install').hidden = true; };
+addEventListener('appinstalled', () => { $('#install').hidden = true; toast('설치됐어요. 앱스 화면의 MARK 아이콘으로 열어 주세요'); });
+
 // 시작
 (async () => {
   try { state.dates = (await fetch('data/index.json', { cache: 'no-cache' }).then((r) => r.json())).dates; } catch { state.dates = []; }

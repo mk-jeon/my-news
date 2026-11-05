@@ -154,3 +154,8 @@ dialog::backdrop { background: rgba(0,0,0,.55); }
 /* 접힘 화면: 워드마크 숨기고 날짜 한 줄 유지 */
 .date, .word { white-space: nowrap; }
 @media (max-width: 420px) { .word { display: none; } .top { gap: 2px; } .date { min-width: 0; } }
+
+/* 좁은 카드에서 하단 줄이 두 줄로 깨지지 않게 */
+.foot > * { white-space: nowrap; flex: none; }
+.foot .src { flex: 0 1 auto; min-width: 0; }
+.install { color: var(--blue); }
