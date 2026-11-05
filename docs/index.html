@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MARK · 데일리 브리프</title>
+<meta name="description" content="하드웨어 · 게임 · GitHub · 유튜브 · 애니/웹툰 데일리 브리프">
+<meta name="theme-color" content="#0A0B0F" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./" aria-label="MARK 홈">
+    <img src="icons/icon.svg" alt="" width="28" height="28">
+    <span class="word">MARK</span>
+  </a>
+  <nav class="datenav" aria-label="날짜 이동">
+    <button class="icon-btn" id="prev" aria-label="이전 날짜"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <label class="date">
+      <span id="dateLabel">—</span>
+      <input type="date" id="datePick" aria-label="날짜 선택">
+    </label>
+    <button class="icon-btn" id="next" aria-label="다음 날짜"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  </nav>
+  <div class="actions">
+    <button class="icon-btn" id="saveDay" aria-label="이 날짜 통째로 스크랩" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
+    <button class="icon-btn" id="openSettings" aria-label="알림 및 설정"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l2 2H4zM10 21h4"/></svg></button>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="tabs" id="tabs" aria-label="분류"></nav>
+  <main id="main" tabindex="-1">
+    <div class="loading" aria-live="polite">불러오는 중…</div>
+  </main>
+</div>
+
+<dialog id="settings">
+  <form method="dialog" class="sheet">
+    <div class="sheet-head">
+      <h2>알림 · 설정</h2>
+      <button class="icon-btn" value="close" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <section>
+      <h3>매일 아침 알림</h3>
+      <p class="muted">홈 화면에 설치한 앱에서 켜 주세요. 아래 코드가 나오면 Claude에게 붙여넣어 주면 연결해 줍니다 (GitHub Secret <code>PUSH_SUBSCRIPTIONS</code>).</p>
+      <button type="button" class="btn primary" id="enablePush">알림 켜기</button>
+      <textarea id="subOut" readonly rows="5" hidden aria-label="알림 구독 코드"></textarea>
+      <button type="button" class="btn" id="copySub" hidden>코드 복사</button>
+      <p class="muted" id="pushMsg" aria-live="polite"></p>
+    </section>
+    <section>
+      <h3>스크랩 데이터</h3>
+      <p class="muted">스크랩은 이 기기에만 저장됩니다.</p>
+      <div class="row">
+        <button type="button" class="btn" id="exportScrap">내보내기</button>
+        <label class="btn">가져오기<input type="file" id="importScrap" accept="application/json" hidden></label>
+      </div>
+    </section>
+    <p class="family">MARK — for Mark, Jenny &amp; Vicky<br><span>JMK · Evans Daily</span></p>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
