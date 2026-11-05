@@ -1,9 +1,0 @@
-name: probe
-on: workflow_dispatch
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          curl -s -o /dev/null -w "anissia %{http_code}\n" -A "Mozilla/5.0" https://api.anissia.net/anime/schedule/0
-          curl -s -o /dev/null -w "series %{http_code}\n" -A "Mozilla/5.0" "https://series.naver.com/novel/top100List.series?rankingTypeCode=DAILY&categoryCode=202"

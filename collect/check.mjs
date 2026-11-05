@@ -1,6 +1,6 @@
 // 오프라인 셀프체크: npm run check
 import assert from 'node:assert/strict';
-import { parseRss, parseTrending, parseYoutube, clean, fmtViews, laftelItem, parseSeries, findOrigin, tasteScore } from './sources.mjs';
+import { parseRss, parseTrending, parseYoutube, clean, fmtViews, anissiaItem, parseSeries, findOrigin, tasteScore } from './sources.mjs';
 import { needsKo } from './translate.mjs';
 
 const rss = parseRss(`<rss><channel><item><title>RTX 6090 &amp; more</title><link>https://x.com/a</link>
@@ -25,10 +25,11 @@ assert.ok(needsKo('Nvidia launches GPU'));
 assert.ok(!needsKo('엔비디아 RTX 출시'));
 assert.ok(!needsKo('RTX'));
 
-// 라프텔: 로맨스 제외, 취향 장르 태그
-const lf = laftelItem({ id: 1, name: '전생검', img: 'i', genres: ['이세계', '액션', '판타지'], distributed_air_times: ['목요일'] });
-assert.deepEqual([lf.url, lf.meta, lf.tags, lf.excluded], ['https://laftel.net/item/1', '목요일 · 이세계 · 액션 · 판타지', ['이세계', '액션', '판타지'], false]);
-assert.ok(laftelItem({ id: 2, name: 'x', genres: ['로맨스', '코미디'] }).excluded);
+// 애니시아: 로맨스·종영 제외, 취향 장르 태그, 라프텔 검색 링크
+const an = anissiaItem({ week: '4', time: '23:00', subject: '전생검 2기', genres: '이세계,액션,판타지', status: 'ON', thumbnail: 't' });
+assert.deepEqual([an.url, an.meta, an.tags, an.excluded], ['https://laftel.net/search?keyword=%EC%A0%84%EC%83%9D%EA%B2%80%202%EA%B8%B0', '목 23:00 · 이세계 · 액션 · 판타지', ['이세계', '액션', '판타지'], false]);
+assert.ok(anissiaItem({ week: '1', subject: 'x', genres: '로맨스,코미디', status: 'ON' }).excluded);
+assert.ok(anissiaItem({ week: '1', subject: 'x', genres: '액션', status: 'OFF' }).excluded);
 assert.equal(tasteScore(['무협/사극', '먼치킨', '개그']), 3); // 무협+사극+먼치킨
 
 // 네이버 시리즈 랭킹 HTML

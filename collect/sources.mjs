@@ -242,18 +242,24 @@ const byTaste = (a, b) => b.score - a.score;
 const WEEKDAY = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const strip = ({ score, excluded, synopsis, author, star, ...x }) => x;
 
-// 라프텔: 지금 방영 중인 애니 (한국어 제목·장르)
-export function laftelItem(a) {
-  const genres = a.genres ?? [];
+// 애니시아(국내 애니 편성표): 지금 방영 중인 애니. 라프텔 API 는 해외 IP(GitHub 서버)를 막아서 못 씀.
+// 카드는 라프텔 검색으로 연결 → 폰에서 어디서 볼 수 있는지 바로 확인.
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+export function anissiaItem(a) {
+  const genres = (a.genres ?? '').split(',').map((g) => g.trim()).filter(Boolean);
   return {
-    title: a.name, url: `https://laftel.net/item/${a.id}`, source: '라프텔', image: a.img, time: Date.parse(a.latest_published_datetime) || null,
-    meta: [arr(a.distributed_air_times).join('·'), ...genres.slice(0, 3)].filter(Boolean).join(' · '),
-    tags: genres.filter((g) => TASTE.includes(g)).slice(0, 3), score: tasteScore(genres), excluded: genres.some((g) => EXCLUDE.test(g)) || !!a.is_adult,
+    title: a.subject, url: `https://laftel.net/search?keyword=${encodeURIComponent(a.subject)}`, source: '애니시아', image: a.thumbnail || null, time: null,
+    meta: [`${DAYS[+a.week] ?? ''} ${a.time ?? ''}`.trim(), ...genres.slice(0, 3)].filter(Boolean).join(' · '),
+    tags: genres.filter((g) => TASTE.includes(g)).slice(0, 3), score: tasteScore(genres), start: a.startDate ?? '',
+    excluded: genres.some((g) => EXCLUDE.test(g)) || a.status !== 'ON',
   };
 }
-async function laftel() {
-  const list = await (await get('https://api.laftel.net/api/search/v2/daily/', { headers: { laftel: 'TeJava' } })).json();
-  return list.map(laftelItem).filter((x) => !x.excluded).sort(byTaste).slice(0, 18);
+async function anissia() {
+  const weeks = await Promise.all([0, 1, 2, 3, 4, 5, 6].map(async (w) => (await (await get(`https://api.anissia.net/anime/schedule/${w}`)).json()).data ?? []));
+  const uniq = [...new Map(weeks.flat().map((a) => [a.animeNo, a])).values()];
+  return uniq.map(anissiaItem).filter((x) => !x.excluded)
+    .sort((x, y) => y.score - x.score || y.start.localeCompare(x.start)).slice(0, 18) // 취향 → 최근 시작 순
+    .map(({ start, ...x }) => x);
 }
 
 // 네이버 웹툰: 오늘 요일 인기순 + 신작. 태그는 작품별 info API 에서.
@@ -298,7 +304,7 @@ async function series() {
 export async function anime() {
   const errors = [];
   const jobs = [
-    ['방영 중인 애니 · 라프텔', laftel],
+    ['방영 중인 애니 · 애니시아 편성표', anissia],
     ['오늘의 인기 웹툰 · 네이버', () => naverWebtoon('weekday')],
     ['신작 웹툰 · 네이버', () => naverWebtoon('new')],
     ['웹소설 일간 TOP · 네이버 시리즈', series],
