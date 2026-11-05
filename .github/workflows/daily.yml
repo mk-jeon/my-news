@@ -1,7 +1,12 @@
 name: daily-brief
 on:
   schedule:
-    - cron: '30 20 * * *'  # 05:30 KST 시작 (GitHub cron 은 수십 분 늦을 수 있어 여유를 둠)
+    # GitHub 예약 실행은 늦거나 통째로 빠질 때가 있어서 여러 번 걸어 두고, 그날 처음 성공한 한 번만 일한다.
+    - cron: '13 20 * * *'  # 05:13 KST
+    - cron: '43 20 * * *'
+    - cron: '13 21 * * *'
+    - cron: '43 21 * * *'
+    - cron: '13 22 * * *'  # 07:13 KST (마지막 보험)
   workflow_dispatch:
     inputs:
       notify: { description: '수동 실행 때도 알림 보내기', type: boolean, default: false }
@@ -11,7 +16,20 @@ permissions:
   id-token: write
 concurrency: { group: daily-brief, cancel-in-progress: false }
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs: { skip: '${{ steps.g.outputs.skip }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - id: g
+        run: |
+          # 예약 실행: 오늘(KST) 아침 브리프를 이미 보냈으면 건너뜀
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(cat docs/data/morning.txt 2>/dev/null)" = "$(TZ=Asia/Seoul date +%F)" ]; then
+            echo skip=true >> "$GITHUB_OUTPUT"
+          fi
   brief:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
     steps:
@@ -28,6 +46,7 @@ jobs:
         run: |
           git config user.name "mark-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ "${{ github.event_name }}" = "schedule" ] && TZ=Asia/Seoul date +%F > docs/data/morning.txt
           git add docs/data
           git diff --cached --quiet || git commit -m "brief: $(TZ=Asia/Seoul date +%F)"
           git pull --rebase -q origin main
