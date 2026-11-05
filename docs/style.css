@@ -94,6 +94,13 @@ main { padding: 16px 14px calc(40px + env(safe-area-inset-bottom)); max-width: 1
 .mini .card + .card { border-top: 1px solid var(--line); border-radius: 0; }
 .errors { font-size: 12.5px; color: var(--muted); margin: -12px 2px 24px; }
 
+/* 읽은 기사: 살짝 빛바랜 회색 톤 */
+.card.read h3 { color: color-mix(in srgb, var(--text) 58%, var(--muted)); font-weight: 600; }
+.card.read .sum, .card.read .meta, .card.read .foot { opacity: .72; }
+.card.read .thumb img { filter: grayscale(.55) brightness(.92); opacity: .78; }
+.card.read { background: color-mix(in srgb, var(--surface) 82%, var(--bg)); }
+.mini .card.read { background: none; }
+
 /* 대표 카드 (각 탭 첫 번째) */
 .card.hero { grid-template-columns: 1fr; padding: 0; overflow: hidden; }
 .card.hero .thumb { grid-column: 1; grid-row: 1; width: 100%; height: auto; aspect-ratio: 16/9; border-radius: 0; }

@@ -24,6 +24,14 @@ const store = {
 };
 let scraps = store.get('mark.items', {});   // id → item(+date)
 let days = store.get('mark.days', {});      // date → 전체 데이터 사본
+// 읽은 기사 id (최근 3000개만 유지)
+const read = new Set(store.get('mark.read', []));
+function markRead(id) {
+  if (read.has(id)) return;
+  read.add(id);
+  store.set('mark.read', [...read].slice(-3000));
+  document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"]`).forEach((c) => c.classList.add('read'));
+}
 
 document.body.classList.toggle('rail-min', store.get('mark.railMin', false));
 
@@ -48,7 +56,7 @@ function card(it, { hero = false, date = state.date } = {}) {
   const en = it.origin ? `<a class="chip" href="${esc(safeUrl(it.origin))}" target="_blank" rel="noopener">해외 원문${svg('ext')}</a>`
     : it.translated ? `<a class="chip" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener" title="${esc(it.titleEn || it.summaryEn)}">영문 원문${svg('ext')}</a>` : '';
   const tags = (it.tags ?? []).slice(0, 3).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
-  return `<article class="card${hero ? ' hero' : ''}${img ? '' : ' noimg'}" data-id="${esc(it.id)}">
+  return `<article class="card${hero ? ' hero' : ''}${img ? '' : ' noimg'}${read.has(it.id) ? ' read' : ''}" data-id="${esc(it.id)}">
     ${img}
     <div class="body">
       <h3><a href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
@@ -133,6 +141,13 @@ async function load(date) {
 }
 
 document.addEventListener('click', (e) => {
+  // 기사 링크(제목·원문)를 열면 읽음 처리
+  const link = e.target.closest('.card a[href]');
+  if (link) { markRead(link.closest('.card').dataset.id); return; }
+  // 펼친 화면에서 분류를 고르면 사이드바 자동 접기
+  if (e.target.closest('.tabs [data-tab]') && matchMedia('(min-width: 720px)').matches && !document.body.classList.contains('rail-min')) {
+    document.body.classList.add('rail-min'); store.set('mark.railMin', true);
+  }
   if (e.target.closest('[data-rail]')) { store.set('mark.railMin', document.body.classList.toggle('rail-min')); renderTabs(); return; }
   const t = e.target.closest('[data-tab],[data-save],[data-day]');
   if (!t) return;
