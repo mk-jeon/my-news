@@ -1,6 +1,6 @@
 # MARK — 데일리 브리프
 
-하드웨어 · 게임 · GitHub 트렌딩 · 유튜브 · 애니/웹툰 소식을 매일 07:00(KST)에 모아 PWA로 보여준다. 전부 무료(public repo Actions + Pages).
+하드웨어 · 게임 · GitHub 트렌딩 · 유튜브 · 애니/웹툰 소식을 매일 아침 모아 06:00(KST)에 알림과 함께 PWA로 보여준다. 전부 무료(public repo Actions + Pages).
 
 - 앱: https://mk-jeon.github.io/my-news/ → 크롬 메뉴 "홈 화면에 추가"
 - 소스 추가/삭제: `collect/sources.mjs` 상단 상수 (`FEEDS`, `CHANNELS`, `LIKE_TAGS`)

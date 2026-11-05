@@ -1,7 +1,7 @@
 name: daily-brief
 on:
   schedule:
-    - cron: '0 22 * * *'   # 매일 07:00 KST
+    - cron: '30 20 * * *'  # 05:30 KST 시작 (GitHub cron 은 수십 분 늦을 수 있어 여유를 둠)
   workflow_dispatch:
 permissions:
   contents: write
@@ -34,8 +34,14 @@ jobs:
         with: { path: docs }
       - id: deploy
         uses: actions/deploy-pages@v4
-      - name: 알림 (배포가 끝난 뒤에)
-        run: npm run push
+      - name: 알림 (배포 후, 06:00 KST 까지 대기)
+        run: |
+          # 예약 실행일 때만 06:00 KST(21:00 UTC) 까지 기다린다. 이미 지났으면 바로 보냄.
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            wait=$(( $(date -u -d '21:00' +%s) - $(date -u +%s) ))
+            [ $wait -gt 0 ] && [ $wait -lt 7200 ] && echo "wait ${wait}s" && sleep $wait
+          fi
+          npm run push
         env:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
