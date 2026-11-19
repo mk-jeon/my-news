@@ -1,9 +1,9 @@
 # MARK — 데일리 브리프
 
-하드웨어 · 게임 · GitHub 트렌딩 · 유튜브 · 애니/웹툰 소식을 매일 아침 모아 06:00(KST)에 알림과 함께 PWA로 보여준다. 전부 무료(public repo Actions + Pages).
+하드웨어 · 게임 · 개발·보안(GitHub 트렌딩, 보안 공지·취약점, Claude 스킬) · 유튜브 · 애니/웹툰 소식을 매일 아침 모아 06:00(KST)에 알림과 함께 PWA로 보여준다. 전부 무료(public repo Actions + Pages).
 
 - 앱: https://mk-jeon.github.io/my-news/ → 크롬 메뉴 "홈 화면에 추가"
-- 소스 추가/삭제: `collect/sources.mjs` 상단 상수 (`FEEDS`, `CHANNELS`, `LIKE_TAGS`)
+- 소스 추가/삭제: `collect/sources.mjs` 상단 상수 (`FEEDS`, `CHANNELS`, `TASTE`), 보안 알림 키워드는 `WATCH`
 - 로컬: `npm i && npm run check && npm run collect && npm run serve`
 - 로고 재생성: `python design/make_icons.py`
 

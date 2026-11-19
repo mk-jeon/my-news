@@ -7,7 +7,9 @@ if (!(pub && priv && subs)) { console.log('[push] skipped (no secrets)'); proces
 const { dates } = JSON.parse(await readFile(new URL('../docs/data/index.json', import.meta.url), 'utf8'));
 const d = JSON.parse(await readFile(new URL(`../docs/data/${dates[0]}.json`, import.meta.url), 'utf8'));
 const top = d.sections.find((s) => s.groups[0]?.items[0])?.groups[0].items[0];
-const payload = JSON.stringify({ title: `MARK · ${d.date.slice(5).replace('-', '/')} 브리프`, body: `오늘의 소식 ${d.count}건${top ? ` — ${top.title}` : ''}`, url: `./?d=${d.date}` });
+// 내 스택 보안 소식이 있으면 그걸 먼저
+const alert = d.sections.find((s) => s.id === 'github')?.groups.flatMap((g) => g.items).find((x) => x.tags?.includes('내 스택'));
+const payload = JSON.stringify({ title: `MARK · ${d.date.slice(5).replace('-', '/')} 브리프`, body: alert ? `보안 · ${alert.title} 외 소식 ${d.count}건` : `오늘의 소식 ${d.count}건${top ? ` — ${top.title}` : ''}`, url: `./?d=${d.date}` });
 webpush.setVapidDetails('https://github.com/mk-jeon/my-news', pub, priv);
 for (const s of [JSON.parse(subs)].flat()) {
   await webpush.sendNotification(s, payload).then(() => console.log('[push] sent'), (e) => console.warn('[push] failed', e.statusCode, e.body));

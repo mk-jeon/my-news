@@ -32,7 +32,21 @@ export const FEEDS = {
     ['PC Gamer', 'https://www.pcgamer.com/rss/'],
     ['Gematsu', 'https://www.gematsu.com/feed'],
   ],
+  secNotice: [
+    ['KISA 보호나라', 'https://www.boho.or.kr/kr/rss.do?bbsId=B0000133'],
+    ['nginx', 'https://nginx.org/index.rss'],
+  ],
+  secKo: [['데일리시큐', 'https://www.dailysecu.com/rss/allArticle.xml']],
+  secEn: [
+    ['BleepingComputer', 'https://www.bleepingcomputer.com/feed/'],
+    ['The Hacker News', 'https://feeds.feedburner.com/TheHackersNews'],
+    ['SecurityWeek', 'https://www.securityweek.com/feed/'],
+  ],
 };
+
+// 내가 쓰는 기술 — 보안 소식 제목에 걸리면 '내 스택' 태그 + 아침 알림에 먼저 표시
+export const WATCH = /nginx|엔진엑스|synology|시놀로지|node\.?js|npm|python|pypi|windows|chrome|chromium|openssl|github|docker|postgres|mysql|redis|cloudflare|android|galaxy|삼성/i;
+const mine = (x) => (WATCH.test(x.title) ? { ...x, tags: ['내 스택'] } : x);
 
 export const CHANNELS = {
   '하드웨어 유튜버': [
@@ -202,16 +216,49 @@ export function parseTrending(html) {
   }).filter(Boolean);
 }
 
+// CISA KEV: 실제 공격에 쓰이는 걸로 확인돼 최근 7일 안에 목록에 오른 취약점
+export function kevItems(j, now = Date.now()) {
+  return arr(j.vulnerabilities).filter((v) => Date.parse(v.dateAdded) >= now - 7 * DAY)
+    .sort((a, b) => b.dateAdded.localeCompare(a.dateAdded)).slice(0, 12)
+    .map((v) => ({
+      title: v.vulnerabilityName, summary: clean(v.shortDescription),
+      url: `https://nvd.nist.gov/vuln/detail/${v.cveID}`, source: 'CISA KEV', image: null, time: Date.parse(v.dateAdded),
+      meta: [v.cveID, v.knownRansomwareCampaignUse === 'Known' ? '랜섬웨어 악용' : null].filter(Boolean).join(' · '),
+    }));
+}
+
+const repoItem = (r) => ({
+  title: r.full_name, url: r.html_url, source: 'GitHub', summary: clean(r.description ?? ''),
+  image: `https://opengraph.githubassets.com/1/${r.full_name}`, time: null,
+  meta: [r.language, `★ ${r.stargazers_count.toLocaleString()}`].filter(Boolean).join(' · '),
+});
+
 export async function github() {
   const errors = [];
-  const groups = [];
+  const trend = {};
   for (const [since, title, unit] of [['daily', '오늘', '오늘'], ['weekly', '이번 주', '이번 주'], ['monthly', '이번 달', '이번 달']]) {
     try {
       const items = parseTrending(await (await get(`https://github.com/trending?since=${since}`)).text()).slice(0, 15)
         .map((x) => ({ ...x, meta: [x.lang, `★ ${x.stars.toLocaleString()}`, `${unit} +${x.gained.toLocaleString()}`].filter(Boolean).join(' · ') }));
-      groups.push({ title: `트렌딩 · ${title}`, items });
+      trend[since] = { title: `트렌딩 · ${title}`, items };
     } catch (e) { errors.push(`trending ${since}: ${e.message}`); }
   }
+  const [notice, ko, en] = await Promise.all([feeds(FEEDS.secNotice, 14 * 24, 12), feeds(FEEDS.secKo, 36, 12), feeds(FEEDS.secEn, 36, 15)]);
+  errors.push(...notice.errors, ...ko.errors, ...en.errors);
+  const kev = await get('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json').then((r) => r.json()).then(kevItems)
+    .catch((e) => { errors.push(`CISA KEV: ${e.message}`); return []; });
+  const since30 = new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10);
+  const skills = await get(`https://api.github.com/search/repositories?q=topic:claude-skills+created:>${since30}&sort=stars&per_page=12`, { headers: { accept: 'application/vnd.github+json' } })
+    .then((r) => r.json()).then((j) => arr(j.items).map(repoItem)).catch((e) => { errors.push(`skills: ${e.message}`); return []; });
+  const groups = [
+    { title: '보안 공지 · KISA 보호나라 · nginx', items: notice.items.map(mine) },
+    trend.daily,
+    { title: '국내 보안 뉴스', items: ko.items.map(mine) },
+    { title: '해외 보안 뉴스 · 번역', items: en.items.map(mine) },
+    { title: '실제 공격 확인된 취약점 · CISA KEV · 번역', items: kev.map(mine) },
+    { title: 'Claude 스킬 · 최근 30일 신규 인기', items: skills },
+    trend.weekly, trend.monthly,
+  ].filter(Boolean);
   return { groups, errors };
 }
 
@@ -326,7 +373,7 @@ export async function anime() {
 export const SECTIONS = [
   { id: 'hardware', title: '하드웨어', run: hardware },
   { id: 'games', title: '게임', run: games },
-  { id: 'github', title: 'GitHub', run: github },
+  { id: 'github', title: '개발·보안', run: github },
   { id: 'youtube', title: '유튜브', run: youtube },
   { id: 'anime', title: '애니·웹툰·소설', run: anime },
 ];

@@ -1,6 +1,6 @@
 // 오프라인 셀프체크: npm run check
 import assert from 'node:assert/strict';
-import { parseRss, parseTrending, parseYoutube, clean, fmtViews, anissiaItem, parseSeries, findOrigin, tasteScore } from './sources.mjs';
+import { parseRss, parseTrending, parseYoutube, clean, fmtViews, anissiaItem, parseSeries, findOrigin, tasteScore, kevItems, WATCH } from './sources.mjs';
 import { needsKo } from './translate.mjs';
 
 const rss = parseRss(`<rss><channel><item><title>RTX 6090 &amp; more</title><link>https://x.com/a</link>
@@ -43,5 +43,13 @@ const page = `<a href="https://gigglehd.com/gg/1">x</a><img src="https://videoca
 <a href="https://x.com/jay/status/123">t</a><a href="https://videocardz.com/newz/amd-thing">s</a>`;
 assert.equal(findOrigin(page, 'https://gigglehd.com/gg/hard/1'), 'https://x.com/jay/status/123');
 assert.equal(findOrigin('<a href="https://www.naver.com/news/1">n</a>', 'https://a.kr/1'), null);
+
+// CISA KEV: 7일 넘은 건 버리고 NVD 링크로
+const now = Date.parse('2026-11-19');
+const kv = kevItems({ vulnerabilities: [
+  { cveID: 'CVE-2026-1', vendorProject: 'F5', product: 'NGINX', vulnerabilityName: 'F5 NGINX Overflow', dateAdded: '2026-11-18', shortDescription: 'x', knownRansomwareCampaignUse: 'Known' },
+  { cveID: 'CVE-2025-9', vendorProject: 'Old', product: 'P', vulnerabilityName: 'v', dateAdded: '2026-10-01', shortDescription: 'y' }] }, now);
+assert.deepEqual([kv.length, kv[0].url, kv[0].meta], [1, 'https://nvd.nist.gov/vuln/detail/CVE-2026-1', 'CVE-2026-1 · 랜섬웨어 악용']);
+assert.ok(WATCH.test(kv[0].title) && !WATCH.test('Oracle 제품 보안 업데이트 권고'));
 
 console.log('check ok');

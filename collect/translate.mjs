@@ -57,7 +57,7 @@ export async function translateAll(texts) {
 export async function translateSections(sections) {
   const slots = [];
   for (const sec of sections) for (const g of sec.groups) for (const it of g.items) {
-    if (sec.id === 'github') { if (needsKo(it.summary)) slots.push([it, 'summary']); continue; } // 레포 이름은 번역 안 함
+    if (sec.id === 'github' && it.source === 'GitHub') { if (needsKo(it.summary)) slots.push([it, 'summary']); continue; } // 레포 이름은 번역 안 함
     if (sec.id === 'anime') { if (needsKo(it.summary)) slots.push([it, 'summary']); continue; }    // 작품명은 원제 유지
     for (const f of ['title', 'summary']) if (needsKo(it[f])) slots.push([it, f]);
   }
